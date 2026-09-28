@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#1b2430" />
+  <title>PWA Toolkit — Core Demo</title>
+  <link rel="icon" href="./icon-192.png" />
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <h1>PWA Toolkit <span class="phase">core demo — phase 2</span></h1>
+      <p class="lede">A plain HTML/CSS/JS app with zero framework, wired up to the toolkit's core module. Nothing on this page talks to a backend.</p>
+    </header>
+
+    <section class="grid">
+      <article class="card" id="card-network">
+        <h2>Network status</h2>
+        <p class="value" id="network-value">—</p>
+        <p class="hint">Toggle your connection (or devtools → Network → Offline) to watch this change live.</p>
+      </article>
+
+      <article class="card" id="card-install">
+        <h2>Installability</h2>
+        <p class="value" id="install-value">Checking…</p>
+        <button id="install-btn" disabled>Install app</button>
+      </article>
+
+      <article class="card" id="card-update">
+        <h2>Update status</h2>
+        <p class="value" id="update-value">Up to date</p>
+        <button id="update-btn" disabled>Apply update &amp; reload</button>
+      </article>
+
+      <article class="card" id="card-sw">
+        <h2>Service worker</h2>
+        <p class="value" id="sw-value">—</p>
+        <p class="hint">Strategy: <code>network-first</code>, cache <code>pwa-toolkit-demo-v1</code></p>
+      </article>
+    </section>
+
+    <section class="offline-test">
+      <h2>Try it offline</h2>
+      <ol>
+        <li>Load this page once while online (so the shell gets cached).</li>
+        <li>Go offline (devtools → Network → Offline, or airplane mode).</li>
+        <li>Reload the page — it should still load from cache.</li>
+        <li>Navigate to a page that was never cached, e.g. <a href="./nowhere.html">/nowhere.html</a> — you should land on the offline fallback instead of the browser's default error page.</li>
+      </ol>
+    </section>
+
+    <section class="log">
+      <h2>Diagnostics log</h2>
+      <pre id="log-output">waiting for events…</pre>
+    </section>
+  </main>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

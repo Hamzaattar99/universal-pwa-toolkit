@@ -1,0 +1,12 @@
+{
+  "name": "pwa-toolkit",
+  "version": "0.2.0-phase2",
+  "description": "Universal PWA Toolkit - core module (Phase 2). Optional modules land in Phase 3.",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "node --test test/unit/*.test.js",
+    "demo": "npx http-server ./demo -c-1"
+  },
+  "license": "MIT"
+}

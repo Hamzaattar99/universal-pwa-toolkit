@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>PWA Toolkit — Browser Test Harness</title>
+<style>
+  body { font-family: monospace; background: #0c1116; color: #e7ecf1; padding: 2rem; max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 1.1rem; }
+  .pass { color: #3ddc97; }
+  .fail { color: #e8555f; }
+  .manual { color: #e8a33d; }
+  li { margin-bottom: 0.4rem; }
+  #summary { margin-top: 1.5rem; font-weight: bold; }
+</style>
+</head>
+<body>
+<h1>PWA Toolkit — Browser Test Harness (Phase 2)</h1>
+<p>These checks require a real browser (Service Worker / Cache Storage / manifest APIs don't exist in Node). Serve this <code>test/browser/</code> folder over HTTP(S) or localhost and open this page. Automated checks run on load; a few items need a manual step because they depend on real user gestures or real connectivity loss.</p>
+<ul id="results"><li>Running…</li></ul>
+<div id="summary"></div>
+
+<script type="module">
+  import { createPWA } from '../../src/index.js';
+  import { mergeConfig } from '../../src/config/defaults.js';
+  import { detectFeatures } from '../../src/core/diagnostics.js';
+
+  const results = document.getElementById('results');
+  results.innerHTML = '';
+  let pass = 0, fail = 0;
+
+  function report(name, ok, detail) {
+    const li = document.createElement('li');
+    li.className = ok ? 'pass' : 'fail';
+    li.textContent = `${ok ? 'PASS' : 'FAIL'} — ${name}${detail ? ' (' + detail + ')' : ''}`;
+    results.appendChild(li);
+    ok ? pass++ : fail++;
+  }
+
+  function manual(name, instructions) {
+    const li = document.createElement('li');
+    li.className = 'manual';
+    li.textContent = `MANUAL — ${name}: ${instructions}`;
+    results.appendChild(li);
+  }
+
+  async function run() {
+    // 1. Config validation still throws correctly in a real browser context
+    try {
+      mergeConfig({});
+      report('config validation rejects empty config', false, 'did not throw');
+    } catch (e) {
+      report('config validation rejects empty config', /required/.test(e.message));
+    }
+
+    // 2. Feature detection returns booleans for the expected keys
+    const features = detectFeatures();
+    const expectedKeys = ['serviceWorker', 'caches', 'indexedDB', 'pushManager', 'backgroundSync', 'online'];
+    const allBooleans = expectedKeys.every((k) => typeof features[k] === 'boolean');
+    report('detectFeatures returns booleans for all expected keys', allBooleans, JSON.stringify(features));
+
+    // 3. Initialize the toolkit against the local test SW
+    const pwa = createPWA({
+      name: 'Browser Test Harness',
+      startUrl: './index.html',
+      scope: './',
+      swPath: './sw.js',
+      offlinePage: './offline-stub.html',
+      cache: {
+        strategy: 'network-first',
+        cacheName: 'pwa-toolkit-browsertest-v1',
+        precache: ['./index.html'],
+      },
+    });
+
+    let sawError = false;
+    pwa.getDiagnostics().onEntry((entry) => { if (entry.level === 'error') sawError = true; });
+
+    await pwa.init();
+    report('createPWA().init() completes without throwing', true);
+    report('init() logs no error-level diagnostics', !sawError);
+
+    // 4. Manifest link was injected
+    const manifestLink = document.querySelector('link[rel="manifest"]');
+    report('manifest <link> is present in <head> after init', Boolean(manifestLink));
+
+    // 5. Service worker actually registered (if supported)
+    if (features.serviceWorker) {
+      const reg = await navigator.serviceWorker.getRegistration('./');
+      report('service worker registration exists', Boolean(reg));
+
+      // give the SW a moment to reach 'activated'
+      await new Promise((resolve) => {
+        if (navigator.serviceWorker.controller) return resolve();
+        navigator.serviceWorker.addEventListener('controllerchange', resolve, { once: true });
+        setTimeout(resolve, 3000); // don't hang forever on first load before control kicks in
+      });
+
+      // 6. Precached entry actually landed in Cache Storage
+      const cache = await caches.open('pwa-toolkit-browsertest-v1');
+      const cachedIndex = await cache.match('./index.html');
+      report('precached ./index.html is present in Cache Storage', Boolean(cachedIndex));
+    } else {
+      report('service worker registration exists', false, 'serviceWorker unsupported in this browser - expected skip');
+    }
+
+    // 7. Network status reflects navigator.onLine
+    report('getNetworkStatus() matches navigator.onLine', pwa.getNetworkStatus() === (navigator.onLine ? 'online' : 'offline'));
+
+    manual('offline navigation fallback', 'DevTools → Network → Offline, then hard-reload this page. It should still load from cache (do not expect the offline-stub, since this exact page is precached).');
+    manual('offline fallback to a NEW page', `While offline, navigate to a URL under this scope that was never visited before, e.g. ./nowhere.html — you should see "OFFLINE_FALLBACK_STUB", not the browser's default error page.`);
+    manual('installability + install prompt', 'Only fires on user engagement heuristics in real Chromium browsers; open demo/index.html, interact with the page, and watch the Install card. Cannot be triggered synthetically from a script.');
+    manual('update flow', 'Bump cache.cacheName or edit dist/pwa-toolkit-sw.js, reload twice (once to install new worker, once to see "Update available"), then click "Apply update & reload".');
+
+    document.getElementById('summary').textContent = `${pass} passed, ${fail} failed (automated) — see MANUAL items above for what needs a human.`;
+  }
+
+  run().catch((err) => {
+    report('test harness ran to completion', false, err.message);
+    console.error(err);
+  });
+</script>
+</body>
+</html>
